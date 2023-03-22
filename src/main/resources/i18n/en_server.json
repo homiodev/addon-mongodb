@@ -1,0 +1,5 @@
+{
+  "mongodb": {
+    "require_description": "Mandatory fields: 'db'."
+  }
+}

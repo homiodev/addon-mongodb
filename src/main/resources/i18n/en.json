@@ -1,0 +1,19 @@
+{
+  "workspace": {
+    "mongodb": "MongoDB"
+  },
+  "TITLE": {
+    "INSTALL_MONGODB": "Install MongoDB"
+  },
+  "selection": {
+    "MongoDBEntity": "Mongo DB"
+  },
+  "mongodb": {
+    "name": "MongoDB",
+    "setting": {
+      "label": "MongoDB settings",
+      "st_MongoDBPathSetting": "MongoDB install path",
+      "st_MongoDBInstallSetting": "Install MongoDB"
+    }
+  }
+}
