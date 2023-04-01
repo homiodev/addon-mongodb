@@ -1,7 +1,7 @@
-package org.touchhome.bundle.mongodb.setting;
+package org.homio.bundle.mongodb.setting;
 
-import org.touchhome.bundle.api.EntityContext;
-import org.touchhome.bundle.api.setting.SettingPluginButton;
+import org.homio.bundle.api.EntityContext;
+import org.homio.bundle.api.setting.SettingPluginButton;
 
 public class MongoDBInstallSetting implements SettingPluginButton {
 

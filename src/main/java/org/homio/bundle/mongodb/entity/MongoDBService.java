@@ -1,4 +1,4 @@
-package org.touchhome.bundle.mongodb.entity;
+package org.homio.bundle.mongodb.entity;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
@@ -8,7 +8,7 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import java.util.Objects;
 import lombok.Getter;
-import org.touchhome.bundle.api.service.EntityService;
+import org.homio.bundle.api.service.EntityService;
 
 public class MongoDBService implements EntityService.ServiceInstance<MongoDBEntity> {
 

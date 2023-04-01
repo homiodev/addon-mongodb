@@ -1,8 +1,9 @@
-package org.touchhome.bundle.mongodb.workspace;
+package org.homio.bundle.mongodb.workspace;
 
 import static java.util.Collections.singletonList;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
-import static org.touchhome.bundle.api.util.TouchHomeUtils.OBJECT_MAPPER;
+import static org.homio.bundle.api.util.CommonUtils.OBJECT_MAPPER;
+import static org.homio.bundle.api.util.CommonUtils.getErrorMessage;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.mongodb.MongoCommandException;
@@ -30,19 +31,18 @@ import org.bson.Document;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.DocumentCodec;
 import org.bson.conversions.Bson;
+import org.homio.bundle.api.EntityContext;
+import org.homio.bundle.api.state.DecimalType;
+import org.homio.bundle.api.state.JsonType;
+import org.homio.bundle.api.state.State;
+import org.homio.bundle.api.workspace.WorkspaceBlock;
+import org.homio.bundle.api.workspace.scratch.MenuBlock;
+import org.homio.bundle.api.workspace.scratch.Scratch3Block;
+import org.homio.bundle.api.workspace.scratch.Scratch3ExtensionBlocks;
+import org.homio.bundle.mongodb.MongoDBEntrypoint;
+import org.homio.bundle.mongodb.entity.MongoDBEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.touchhome.bundle.api.EntityContext;
-import org.touchhome.bundle.api.state.DecimalType;
-import org.touchhome.bundle.api.state.JsonType;
-import org.touchhome.bundle.api.state.State;
-import org.touchhome.bundle.api.util.TouchHomeUtils;
-import org.touchhome.bundle.api.workspace.WorkspaceBlock;
-import org.touchhome.bundle.api.workspace.scratch.MenuBlock;
-import org.touchhome.bundle.api.workspace.scratch.Scratch3Block;
-import org.touchhome.bundle.api.workspace.scratch.Scratch3ExtensionBlocks;
-import org.touchhome.bundle.mongodb.MongoDBEntrypoint;
-import org.touchhome.bundle.mongodb.entity.MongoDBEntity;
 
 
 @Log4j2
@@ -271,7 +271,7 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
         if (ex.getCode() == 40573) {
           workspaceBlock.logErrorAndThrow("Unable to watch pipeline stream without replica set");
         }
-        workspaceBlock.logErrorAndThrow("Unexpected error while watch pipeline: " + TouchHomeUtils.getErrorMessage(ex));
+        workspaceBlock.logErrorAndThrow("Unexpected error while watch pipeline: " + getErrorMessage(ex));
       }
     });
   }

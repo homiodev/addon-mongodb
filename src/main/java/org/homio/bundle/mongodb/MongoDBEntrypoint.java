@@ -1,10 +1,10 @@
-package org.touchhome.bundle.mongodb;
+package org.homio.bundle.mongodb;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
+import org.homio.bundle.api.BundleEntrypoint;
 import org.springframework.stereotype.Component;
-import org.touchhome.bundle.api.BundleEntrypoint;
 
 @Log4j2
 @Component
