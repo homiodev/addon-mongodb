@@ -11,7 +11,9 @@ import javax.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.apache.commons.lang3.SystemUtils;
 import org.homio.bundle.api.EntityContext;
+import org.homio.bundle.api.EntityContextHardware;
 import org.homio.bundle.api.entity.types.StorageEntity;
 import org.homio.bundle.api.model.ActionResponseModel;
 import org.homio.bundle.api.model.HasEntityLog;
@@ -72,7 +74,7 @@ public class MongoDBEntity extends StorageEntity<MongoDBEntity> implements
   }
 
   public void setPassword(String value) {
-    setJsonData("pwd", value);
+    setJsonDataSecure("pwd", value);
   }
 
   @UIField(order = 50, type = UIFieldType.TextSelectBoxDynamic)
@@ -103,7 +105,7 @@ public class MongoDBEntity extends StorageEntity<MongoDBEntity> implements
 
   @Override
   public MongoDBService createService(EntityContext entityContext) {
-    return new MongoDBService(this);
+    return new MongoDBService(this, entityContext);
   }
 
   @UIContextMenuAction("CHECK_DB_CONNECTION")
@@ -116,6 +118,39 @@ public class MongoDBEntity extends StorageEntity<MongoDBEntity> implements
   public void logBuilder(EntityLogBuilder entityLogBuilder) {
     entityLogBuilder.addTopic("org.homio.bundle.mongodb");
     entityLogBuilder.addTopic("com.mongodb");
+  }
+
+  @UIContextMenuAction(value = "install_mongodb", icon = "fas fa-play")
+  public ActionResponseModel install(EntityContext entityContext) {
+    if (SystemUtils.IS_OS_LINUX) {
+      // wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+      // sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+      EntityContextHardware hardware = entityContext.hardware();
+      if (!hardware.isSoftwareInstalled("mongod")) {
+        entityContext.bgp().runWithProgress("install-mongod", false, progressBar -> {
+          hardware.installSoftware("gnupg", 60, progressBar);
+          hardware.installSoftware("wget", 300, progressBar);
+          hardware.execute("wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -");
+          hardware.execute("echo \"deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse\" | sudo tee /etc/apt/sources"
+              + ".list.d/mongodb-org-6.0.list");
+          hardware.execute("sudo apt-get update -y");
+          hardware.installSoftware("mongodb-org", 600, progressBar);
+          // hardware.execute("sudo systemctl daemon-reload");
+          hardware.enableAndStartSystemCtl("mongod");
+        }, exception -> {
+          if (exception != null) {
+            entityContext.ui().sendErrorMessage("Error during install Mongod", exception);
+          } else {
+            entityContext.ui().sendSuccessMessage("Mongod installed successfully");
+          }
+        });
+        return ActionResponseModel.showInfo("Installing...");
+      } else {
+        return ActionResponseModel.showError("Mongod already installed");
+      }
+    } else {
+      return ActionResponseModel.showError("Unable to install mongod for non-linux env");
+    }
   }
 
   public static class SelectMongoDBNamesLoader implements DynamicOptionLoader {

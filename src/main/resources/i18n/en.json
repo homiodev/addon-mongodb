@@ -1,4 +1,5 @@
 {
+  "install_mongodb": "Install locally MongoDB",
   "workspace": {
     "mongodb": "MongoDB"
   },
@@ -7,13 +8,5 @@
   },
   "selection": {
     "MongoDBEntity": "Mongo DB"
-  },
-  "mongodb": {
-    "name": "MongoDB",
-    "setting": {
-      "label": "MongoDB settings",
-      "st_MongoDBPathSetting": "MongoDB install path",
-      "st_MongoDBInstallSetting": "Install MongoDB"
-    }
   }
 }
