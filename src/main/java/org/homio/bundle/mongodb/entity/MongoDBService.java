@@ -1,7 +1,5 @@
 package org.homio.bundle.mongodb.entity;
 
-import static org.apache.commons.lang3.StringUtils.defaultIfEmpty;
-
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoCredential;
@@ -11,76 +9,63 @@ import com.mongodb.client.MongoDatabase;
 import lombok.Getter;
 import org.bson.BsonDocument;
 import org.bson.BsonString;
-import org.homio.bundle.api.EntityContext;
-import org.homio.bundle.api.service.EntityService;
-import org.homio.bundle.api.ui.UI.Color;
+import org.homio.api.Context;
+import org.homio.api.model.Icon;
+import org.homio.api.service.EntityService;
+import org.homio.api.ui.UI;
+import org.jetbrains.annotations.Nullable;
 
-public class MongoDBService implements EntityService.ServiceInstance<MongoDBEntity> {
+import static org.apache.commons.lang3.StringUtils.defaultIfEmpty;
 
-  private final EntityContext entityContext;
+public class MongoDBService extends EntityService.ServiceInstance<MongoDBEntity> {
+
   @Getter
   private MongoDatabase mongoDatabase;
-  @Getter
-  private MongoDBEntity entity;
   private MongoClient mongoClient;
-  private long hashCode;
 
-  public MongoDBService(MongoDBEntity entity, EntityContext entityContext) {
-    this.entity = entity;
-    this.entityContext = entityContext;
-    this.mongoClient = MongoDBService.createMongoClient(entity);
-    this.mongoDatabase = mongoClient.getDatabase(entity.getDatabase());
+  public MongoDBService(MongoDBEntity entity, Context context) {
+    super(context, entity, true, "MongoDB");
   }
 
   public static MongoClient createMongoClient(MongoDBEntity entity) {
     MongoClientSettings.Builder builder = MongoClientSettings.builder()
-        .applyConnectionString(new ConnectionString(entity.getUrl()));
+      .applyConnectionString(new ConnectionString(entity.getUrl()));
 
     if (!entity.getUser().isEmpty()) {
       builder.credential(
-          MongoCredential.createCredential(entity.getUser(), entity.getDatabase(), entity.getPassword().asString().toCharArray()));
+        MongoCredential.createCredential(entity.getUser(), entity.getDatabase(), entity.getPassword().asString().toCharArray()));
     }
 
     return MongoClients.create(builder.build());
   }
 
   @Override
-  public boolean entityUpdated(MongoDBEntity entity) {
-    long hashCode = entity.getJsonDataHashCode("url", "user", "pwd", "db");
-    boolean reconfigure = this.hashCode != hashCode;
-    this.hashCode = hashCode;
-    this.entity = entity;
-    if (reconfigure) {
-      this.destroy();
-      this.mongoClient = MongoDBService.createMongoClient(entity);
-      this.mongoDatabase = mongoClient.getDatabase(entity.getDatabase());
-    }
-    updateNotificationBlock();
-    return reconfigure;
+  protected void initialize() {
+    this.mongoClient = MongoDBService.createMongoClient(entity);
+    this.mongoDatabase = mongoClient.getDatabase(entity.getDatabase());
   }
 
   @Override
-  public void destroy() {
-    mongoClient.close();
-  }
-
-  @Override
-  public boolean testService() {
+  public void testService() {
     mongoDatabase.listCollectionNames().first();
-    return true;
   }
 
   public void updateNotificationBlock() {
-    entityContext.ui().addNotificationBlock("mongo", "mongo", "fas fa-mountain", "#32A318", builder -> {
+    context.ui().notification().addBlock("mongo", "mongo", new Icon("fas fa-mountain", "#32A318"), builder -> {
       builder.setStatus(getEntity().getStatus());
       if (!getEntity().getStatus().isOnline()) {
-        builder.addInfo(defaultIfEmpty(getEntity().getStatusMessage(), "Unknown error"),
-            Color.RED, "fas fa-exclamation", null);
+        var err = defaultIfEmpty(getEntity().getStatusMessage(), "Unknown error");
+        builder.addInfo(String.valueOf(err.hashCode()), new Icon("fas fa-exclamation", UI.Color.RED), err);
       } else {
         String version = mongoDatabase.runCommand(new BsonDocument("buildinfo", new BsonString("")))
-                                      .get("version").toString();
+          .get("version").toString();
         builder.setVersion(version);
       }
     });
+  }
+
+  @Override
+  public void destroy(boolean forRestart, @Nullable Exception ex) {
+    mongoClient.close();
   }
 }

@@ -1,10 +1,5 @@
 package org.homio.bundle.mongodb.workspace;
 
-import static java.util.Collections.singletonList;
-import static org.apache.commons.lang3.StringUtils.isEmpty;
-import static org.homio.bundle.api.util.CommonUtils.OBJECT_MAPPER;
-import static org.homio.bundle.api.util.CommonUtils.getErrorMessage;
-
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.mongodb.MongoCommandException;
 import com.mongodb.client.ChangeStreamIterable;
@@ -19,9 +14,6 @@ import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.OperationType;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
@@ -31,18 +23,27 @@ import org.bson.Document;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.DocumentCodec;
 import org.bson.conversions.Bson;
-import org.homio.bundle.api.EntityContext;
-import org.homio.bundle.api.state.DecimalType;
-import org.homio.bundle.api.state.JsonType;
-import org.homio.bundle.api.state.State;
-import org.homio.bundle.api.workspace.WorkspaceBlock;
-import org.homio.bundle.api.workspace.scratch.MenuBlock;
-import org.homio.bundle.api.workspace.scratch.Scratch3Block;
-import org.homio.bundle.api.workspace.scratch.Scratch3ExtensionBlocks;
+import org.homio.api.Context;
+import org.homio.api.state.DecimalType;
+import org.homio.api.state.JsonType;
+import org.homio.api.state.State;
+import org.homio.api.workspace.WorkspaceBlock;
+import org.homio.api.workspace.scratch.MenuBlock;
+import org.homio.api.workspace.scratch.Scratch3Block;
+import org.homio.api.workspace.scratch.Scratch3ExtensionBlocks;
 import org.homio.bundle.mongodb.MongoDBEntrypoint;
 import org.homio.bundle.mongodb.entity.MongoDBEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static java.util.Collections.singletonList;
+import static org.apache.commons.lang3.StringUtils.isEmpty;
+import static org.homio.api.util.CommonUtils.getErrorMessage;
+import static org.homio.api.util.JsonUtils.OBJECT_MAPPER;
 
 
 @Log4j2
@@ -68,9 +69,9 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
   private final Scratch3Block readDocumentCommand;
   private final Scratch3Block readDocumentsCommand;
 
-  public Scratch3MongoDBBlocks(EntityContext entityContext, MongoDBEntrypoint mongoDBEntrypoint) {
-    super("#007818", entityContext, mongoDBEntrypoint, null);
-    setParent("storage");
+  public Scratch3MongoDBBlocks(Context context, MongoDBEntrypoint mongoDBEntrypoint) {
+    super("#007818", context, mongoDBEntrypoint, null);
+    setParent(ScratchParent.storage);
 
     // Menu
     this.mongoDbMenu = menuServerItems("mongoDbMenu", MongoDBEntity.class, "Select Mongo");
@@ -79,34 +80,34 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
     this.sortMenu = menuStatic("sortEnum", SortEnum.class, SortEnum.Asc);
 
     this.operationTypeMenu = menuStatic("operationType", ExtendedOperationType.class, ExtendedOperationType.ANY)
-        .setMultiSelect(" | ");
+      .setMultiSelect(" | ");
 
     // commands
     this.watchCommand = ofDBC(blockHat(10, "watch",
-        "Watch changes of [DBC] | Filter: [FILTER], ChangeTypes: [OT]", this::watchCommand));
+      "Watch changes of [DBC] | Filter: [FILTER], ChangeTypes: [OT]", this::watchCommand));
     this.watchCommand.addArgument("FILTER", "{}");
     this.watchCommand.addArgument("OT", this.operationTypeMenu);
 
     this.createDocumentCommand = ofDBC(blockCommand(20, "createDoc",
-        "Insert doc [VALUE] of [DBC]", this::createCommand));
+      "Insert doc [VALUE] of [DBC]", this::createCommand));
     this.createDocumentCommand.addArgument(VALUE, "{test:1}");
 
     this.countDocumentCommand = ofDBC(blockReporter(30, "countDoc",
-        "Count docs [FILTER] of [DBC]", this::countCommand));
+      "Count docs [FILTER] of [DBC]", this::countCommand));
     this.countDocumentCommand.addArgument("FILTER", "{}");
 
     this.readDocumentCommand = ofDBC(blockReporter(34, "readDoc",
-        "Read doc [FILTER] of [DBC]", this::readDocumentCommand));
+      "Read doc [FILTER] of [DBC]", this::readDocumentCommand));
     this.readDocumentCommand.addArgument("FILTER", "{}");
 
     this.readDocumentsCommand = ofDBC(blockReporter(35, "readDocs",
-        "Read docs [FILTER] of [DBC] | Sort: [SORT], Limit: [LIMIT]", this::readDocumentsCommand));
+      "Read docs [FILTER] of [DBC] | Sort: [SORT], Limit: [LIMIT]", this::readDocumentsCommand));
     this.readDocumentsCommand.addArgument("FILTER", "{}");
     this.readDocumentsCommand.addArgument("SORT", "{}");
     this.readDocumentsCommand.addArgument("LIMIT", 100);
 
     this.deleteDocumentCommand = ofDBC(blockCommand(40, "deleteDoc",
-        "Delete [TYPE] docs by filter [FILTER] of [DBC]", this::deleteCommand));
+      "Delete [TYPE] docs by filter [FILTER] of [DBC]", this::deleteCommand));
     this.deleteDocumentCommand.addArgument("TYPE", this.typeMenu);
     this.deleteDocumentCommand.addArgument("FILTER", "{}");
     this.deleteDocumentCommand.appendSpace();
@@ -115,8 +116,8 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
     });
 
     this.updateDocumentCommand = ofDBC(blockCommand(60, "updateDoc",
-        "Update [TYPE] doc by filter [FILTER]. Set [VALUE] of [DBC] | Upsert: [UPSERT]",
-        this::updateCommand));
+      "Update [TYPE] doc by filter [FILTER]. Set [VALUE] of [DBC] | Upsert: [UPSERT]",
+      this::updateCommand));
     this.updateDocumentCommand.addArgument(VALUE, "{test:1}");
     this.updateDocumentCommand.addArgument("TYPE", this.typeMenu);
     this.updateDocumentCommand.addArgument("FILTER", "{}");
@@ -124,20 +125,20 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
     this.updateDocumentCommand.appendSpace();
 
     this.createCollectionCommand = ofDB(blockCommand(100, "createColl",
-        "Create collection [COLL] of [DB]", this::createCollectionCommand));
+      "Create collection [COLL] of [DB]", this::createCollectionCommand));
     this.createCollectionCommand.addArgument("COLL", "name");
 
     this.dropCollectionCommand = ofDBC(blockCommand(110, "dropColl",
-        "Delete collection [DBC]", this::dropCollectionCommand));
+      "Delete collection [DBC]", this::dropCollectionCommand));
 
     this.createIndexCommand = ofDBC(blockCommand(120, "createIndex",
-        "Create [SORT] index [NAME] [DBC] | Unique: [UNIQUE]", this::createIndexCommand));
+      "Create [SORT] index [NAME] [DBC] | Unique: [UNIQUE]", this::createIndexCommand));
     this.createIndexCommand.addArgument("NAME", "stars, name");
     this.createIndexCommand.addArgument("SORT", this.sortMenu);
     this.createIndexCommand.addArgument("UNIQUE", false);
 
     this.dropIndexCommand = ofDBC(blockCommand(130, "dropIndex",
-        "Delete index [NAME] [DBC]", this::dropIndexCommand));
+      "Delete index [NAME] [DBC]", this::dropIndexCommand));
     this.dropIndexCommand.addArgument("NAME", "name");
   }
 
@@ -187,7 +188,7 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
     MongoCollection<Document> collection = getCollection(workspaceBlock);
     String name = workspaceBlock.getInputStringRequired("NAME");
     List<String> indexes =
-        Stream.of(name.split(",")).map(String::trim).filter(i -> !i.isEmpty()).collect(Collectors.toList());
+      Stream.of(name.split(",")).map(String::trim).filter(i -> !i.isEmpty()).collect(Collectors.toList());
     IndexOptions indexOptions = new IndexOptions().unique(workspaceBlock.getInputBoolean("UNIQUE"));
 
     if (workspaceBlock.getMenuValue("SORT", this.sortMenu) == SortEnum.Asc) {
@@ -224,7 +225,7 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
   private void createCollectionCommand(WorkspaceBlock workspaceBlock) {
     MongoDBEntity entity = workspaceBlock.getMenuValueEntityRequired("DB", this.mongoDbMenu);
     entity.getService().getMongoDatabase()
-        .createCollection(workspaceBlock.getInputStringRequired("COLL"));
+      .createCollection(workspaceBlock.getInputStringRequired("COLL"));
   }
 
   private void dropCollectionCommand(WorkspaceBlock workspaceBlock) {
@@ -246,11 +247,11 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
       MongoCollection<Document> collection = getCollection(workspaceBlock);
 
       List<ExtendedOperationType> operationTypeExtFilters = workspaceBlock.getMenuValues("OT",
-          this.operationTypeMenu, ExtendedOperationType.class);
+        this.operationTypeMenu, ExtendedOperationType.class);
       Bson operationTypeFilter = null;
       if (!operationTypeExtFilters.contains(ExtendedOperationType.ANY)) {
         operationTypeFilter = Filters.in("operationType",
-            operationTypeExtFilters.stream().map(e -> OperationType.valueOf(e.name())).collect(Collectors.toList()));
+          operationTypeExtFilters.stream().map(e -> OperationType.valueOf(e.name())).collect(Collectors.toList()));
       }
 
       Bson pipeline = buildWatchPipeline(operationTypeFilter, workspaceBlock.getInputStringRequired("FILTER"));
@@ -316,7 +317,7 @@ public class Scratch3MongoDBBlocks extends Scratch3ExtensionBlocks {
 
   private MongoCollection<Document> getCollection(WorkspaceBlock workspaceBlock) {
     String[] entityWithColl = workspaceBlock.getMenuValue("DBC", this.mongoDbAndColMenu).split("/");
-    MongoDBEntity entity = entityContext.getEntity(entityWithColl[0]);
+    MongoDBEntity entity = context.db().get(entityWithColl[0]);
     return entity.getService().getMongoDatabase().getCollection(entityWithColl[1]);
   }
 

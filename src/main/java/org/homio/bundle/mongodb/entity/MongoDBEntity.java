@@ -1,43 +1,44 @@
 package org.homio.bundle.mongodb.entity;
 
-import static org.apache.commons.lang3.StringUtils.isEmpty;
-
 import com.mongodb.client.MongoClient;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.List;
-import javax.persistence.Entity;
-import javax.validation.constraints.Pattern;
+import jakarta.persistence.Entity;
+import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.apache.commons.lang3.SystemUtils;
-import org.homio.bundle.api.EntityContext;
-import org.homio.bundle.api.EntityContextHardware;
-import org.homio.bundle.api.entity.types.StorageEntity;
-import org.homio.bundle.api.model.ActionResponseModel;
-import org.homio.bundle.api.model.HasEntityLog;
-import org.homio.bundle.api.model.OptionModel;
-import org.homio.bundle.api.service.EntityService;
-import org.homio.bundle.api.ui.UISidebarChildren;
-import org.homio.bundle.api.ui.action.DynamicOptionLoader;
-import org.homio.bundle.api.ui.field.UIField;
-import org.homio.bundle.api.ui.field.UIFieldType;
-import org.homio.bundle.api.ui.field.action.UIContextMenuAction;
-import org.homio.bundle.api.ui.field.selection.UIFieldSelectValueOnEmpty;
-import org.homio.bundle.api.ui.field.selection.UIFieldSelection;
-import org.homio.bundle.api.util.Lang;
-import org.homio.bundle.api.util.SecureString;
+import org.homio.api.Context;
+import org.homio.api.entity.log.HasEntityLog;
+import org.homio.api.entity.types.StorageEntity;
+import org.homio.api.model.ActionResponseModel;
+import org.homio.api.model.OptionModel;
+import org.homio.api.service.EntityService;
+import org.homio.api.ui.UISidebarChildren;
+import org.homio.api.ui.field.UIField;
+import org.homio.api.ui.field.UIFieldType;
+import org.homio.api.ui.field.action.UIContextMenuAction;
+import org.homio.api.ui.field.selection.UIFieldSelectConfig;
+import org.homio.api.ui.field.selection.dynamic.DynamicOptionLoader;
+import org.homio.api.ui.field.selection.dynamic.UIFieldDynamicSelection;
+import org.homio.api.util.Lang;
+import org.homio.api.util.SecureString;
+import org.jetbrains.annotations.NotNull;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.commons.lang3.StringUtils.isEmpty;
+
+@SuppressWarnings({"JpaAttributeTypeInspection", "JpaAttributeMemberSignatureInspection", "unused"})
 @Getter
 @Setter
 @Entity
 @Accessors(chain = true)
 @UISidebarChildren(icon = "fas fa-mountain", color = "#32A318")
-public class MongoDBEntity extends StorageEntity<MongoDBEntity> implements
-    EntityService<MongoDBService, MongoDBEntity>, HasEntityLog {
+public class MongoDBEntity extends StorageEntity implements
+  EntityService<MongoDBService>, HasEntityLog {
 
-  public static final String PREFIX = "mongodb_";
   public static final SimpleDateFormat FORMAT_RANGE = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
   @UIField(order = 1, hideInEdit = true, hideOnEmpty = true, fullWidth = true, bg = "#334842", type = UIFieldType.HTML)
@@ -77,9 +78,9 @@ public class MongoDBEntity extends StorageEntity<MongoDBEntity> implements
     setJsonDataSecure("pwd", value);
   }
 
-  @UIField(order = 50, type = UIFieldType.TextSelectBoxDynamic)
-  @UIFieldSelection(SelectMongoDBNamesLoader.class)
-  @UIFieldSelectValueOnEmpty(label = "selection.selectDB", color = "#A7D21E")
+  @UIField(order = 50, type = UIFieldType.SelectBox)
+  @UIFieldDynamicSelection(value = SelectMongoDBNamesLoader.class, rawInput = true)
+  @UIFieldSelectConfig(selectOnEmptyLabel = "selection.selectDB", icon = "fas fa-database", iconColor = "#A7D21E")
   public String getDatabase() {
     return getJsonData("db");
   }
@@ -94,22 +95,27 @@ public class MongoDBEntity extends StorageEntity<MongoDBEntity> implements
   }
 
   @Override
-  public String getEntityPrefix() {
-    return PREFIX;
+  protected @NotNull String getDevicePrefix() {
+    return "mongodb";
   }
 
   @Override
-  public Class<MongoDBService> getEntityServiceItemClass() {
+  public long getEntityServiceHashCode() {
+    return getJsonDataHashCode("url", "user", "pwd", "db");
+  }
+
+  @Override
+  public @NotNull Class<MongoDBService> getEntityServiceItemClass() {
     return MongoDBService.class;
   }
 
   @Override
-  public MongoDBService createService(EntityContext entityContext) {
-    return new MongoDBService(this, entityContext);
+  public MongoDBService createService(@NotNull Context context) {
+    return new MongoDBService(this, context);
   }
 
   @UIContextMenuAction("CHECK_DB_CONNECTION")
-  public ActionResponseModel testConnection() throws Exception {
+  public ActionResponseModel testConnection() {
     getService().testServiceWithSetStatus();
     return ActionResponseModel.success();
   }
@@ -121,28 +127,22 @@ public class MongoDBEntity extends StorageEntity<MongoDBEntity> implements
   }
 
   @UIContextMenuAction(value = "install_mongodb", icon = "fas fa-play")
-  public ActionResponseModel install(EntityContext entityContext) {
+  public ActionResponseModel install(Context context) {
     if (SystemUtils.IS_OS_LINUX) {
       // wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
       // sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-      EntityContextHardware hardware = entityContext.hardware();
+      var hardware = context.hardware();
       if (!hardware.isSoftwareInstalled("mongod")) {
-        entityContext.bgp().runWithProgress("install-mongod", false, progressBar -> {
+        context.bgp().runWithProgress("install-mongod").execute(progressBar -> {
           hardware.installSoftware("gnupg", 60, progressBar);
           hardware.installSoftware("wget", 300, progressBar);
           hardware.execute("wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -");
           hardware.execute("echo \"deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse\" | sudo tee /etc/apt/sources"
-              + ".list.d/mongodb-org-6.0.list");
+                           + ".list.d/mongodb-org-6.0.list");
           hardware.execute("sudo apt-get update -y");
           hardware.installSoftware("mongodb-org", 600, progressBar);
           // hardware.execute("sudo systemctl daemon-reload");
           hardware.enableAndStartSystemCtl("mongod");
-        }, exception -> {
-          if (exception != null) {
-            entityContext.ui().sendErrorMessage("Error during install Mongod", exception);
-          } else {
-            entityContext.ui().sendSuccessMessage("Mongod installed successfully");
-          }
         });
         return ActionResponseModel.showInfo("Installing...");
       } else {
